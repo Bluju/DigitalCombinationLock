@@ -1,9 +1,7 @@
-module ComboLock(
+module combolock(
 input logic en, submit, 
+input logic [7:0]passcode_attempt, 
 output logic [6:0] led0, led1, led2, led3, led4, led5);
-
-//attempts and passcode may need to be changed to wire instead of input
-
 
 //Tasks for setting the display
 task setDisplayClosed;
@@ -46,35 +44,44 @@ task setDisplayDenied;
 		led0 = 7'h21; // D
 	end
 endtask
-
-
-always_comb begin
-
-	reg passcode = 6'b101001; //set the password for the lock
-	reg attempts = 2'b11; //set the amount of attempts remaining to 3
+	
+always_ff begin
+	byte passcode = 8'b01001001; //set the password for the lock
+	logic [2:0] attempts = 2'b11; //set the amount of attempts remaining to 3
 	if(en == 1'b1) begin
 		setDisplayTrysRemaining(); // Display is now: Trys=
-		led0 = attempts; // Display is now: Trys=3
-		while(submit == 1'b0) begin
-			//while attempt has not been submitted
-		end
-		//submit switch was flipped
-		//if input == passcode
-		// change display to OPEN 
-		//else input was wrong
-		// attempts -= 1
-		//if attempts == 0
-		//change display to denied for 5 seconds
-		//change display to 55 then countdown to 0
-		attempts = 2'b11; // change attempts back to 3
+		if(attempts == 2'b11)
+			led0 = 7'h30; // Display is now: Trys=3
+		else if(attempts == 2'b10)
+			led0 = 7'h24; // Trys=2
+		else if(attempts == 2'b01)
+			led0 = 7'h09; // Trys=1
 		
+		//submit switch was flipped
+		if(submit == 1'b1 && passcode_attempt == passcode) begin
+			//if input passcode is correct
+			setDisplayOpen();
+		end
+		else begin
+			//input was wrong
+			// attempts -= 1
+			if(attempts == 2'b11)
+				attempts = 2'b10;
+			else if(attempts == 2'b10)
+				attempts = 2'b01;
+			else if(attempts == 2'b01)
+				attempts = 2'b00;
+		end
+		if(attempts == 2'b00) begin
+			//change display to denied for 5 seconds
+			//change display to 55 then countdown to 0
+			setDisplayDenied();
+			attempts = 2'b11; // change attempts back to 3
+		end
 	end
 	else begin
 		//display 'Closed' in 7-segment display
 		setDisplayClosed(); // Display is now: Closed
 	end
 end
-
-
 endmodule
-
