@@ -3,6 +3,9 @@ input logic en, submit,
 input logic [7:0]passcode_attempt, 
 output logic [6:0] led0, led1, led2, led3, led4, led5);
 
+//attempts and passcode may need to be changed to wire instead of input
+
+
 //Tasks for setting the display
 task setDisplayClosed;
 	begin
@@ -14,14 +17,19 @@ task setDisplayClosed;
 		led0 = 7'h21; // D
 	end
 endtask
-task setDisplayTrysRemaining;
+task setDisplayTrysRemaining(input [1:0] trys);
 	begin 
 		led5 = 7'h07; // T
 		led4 = 7'h2F; // R
 		led3 = 7'h11; // Y
 		led2 = 7'h12; // S
-		led1 = 7'h67; // =
-		led0 = 7'h7F; // *blank*
+		led1 = 7'h37; // =
+		if(trys == 2'b11)
+			led0 = 7'h30; // Display is now: Trys=3
+		else if(trys == 2'b10)
+			led0 = 7'h24; // Trys=2
+		else if(trys == 2'b01)
+			led0 = 7'h09; // Trys=1
 	end
 endtask
 task setDisplayOpen;
@@ -44,39 +52,38 @@ task setDisplayDenied;
 		led0 = 7'h21; // D
 	end
 endtask
-	
+
+
 always_ff begin
+
 	byte passcode = 8'b01001001; //set the password for the lock
-	logic [2:0] attempts = 2'b11; //set the amount of attempts remaining to 3
+	logic [1:0] attempts = 2'b11; //set the amount of attempts remaining to 3
 	if(en == 1'b1) begin
-		setDisplayTrysRemaining(); // Display is now: Trys=
-		if(attempts == 2'b11)
-			led0 = 7'h30; // Display is now: Trys=3
-		else if(attempts == 2'b10)
-			led0 = 7'h24; // Trys=2
-		else if(attempts == 2'b01)
-			led0 = 7'h09; // Trys=1
+		
+		setDisplayTrysRemaining(attempts); // Display is now: Trys=
+		
 		
 		//submit switch was flipped
-		if(submit == 1'b1 && passcode_attempt == passcode) begin
-			//if input passcode is correct
-			setDisplayOpen();
+		if(submit == 1'b1) begin
+			if(passcode_attempt == passcode) begin
+				setDisplayOpen();
+			end
+			else begin
+				if(attempts == 2'b11)
+					attempts <= 2'b10;
+				else if(attempts == 2'b10)
+					attempts <= 2'b01;
+				else if(attempts == 2'b01)
+					attempts <= 2'b00;
+			end
+			
 		end
-		else begin
-			//input was wrong
-			// attempts -= 1
-			if(attempts == 2'b11)
-				attempts = 2'b10;
-			else if(attempts == 2'b10)
-				attempts = 2'b01;
-			else if(attempts == 2'b01)
-				attempts = 2'b00;
-		end
+		
 		if(attempts == 2'b00) begin
 			//change display to denied for 5 seconds
 			//change display to 55 then countdown to 0
 			setDisplayDenied();
-			attempts = 2'b11; // change attempts back to 3
+			//attempts = 2'b11; // change attempts back to 3
 		end
 	end
 	else begin
